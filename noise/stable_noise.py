@@ -88,6 +88,7 @@ class SubGaussianStableNoise:
         if not 1.0 < alpha <= 2.0:
             raise ValueError(f"alpha must be in (1, 2], got {alpha}")
         self.alpha = alpha
+        print(f"Initialized SubGaussianStableNoise with alpha={alpha}, sigma_n={sigma_n}")
         self.alpha_half = alpha / 2.0
         self.sigma_n = sigma_n
         self._is_gaussian = (alpha == 2.0)
