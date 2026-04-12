@@ -92,7 +92,7 @@ image_training:
   image_size: 28
   in_channels: 1
   batch_size: 128
-  n_iters: 30000
+  n_iters: 50000
   lr: 0.0002
   warmup: 5000
   save_every: 5000
