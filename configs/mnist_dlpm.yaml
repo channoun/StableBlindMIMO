@@ -1,0 +1,130 @@
+# DLPM-PVD on Rayleigh fading channel — MNIST (28x28 grayscale)
+# Fast experiment config: trains in ~1-2 hours, eval in minutes.
+
+# -------------------------------------------------------------------
+# Image
+# -------------------------------------------------------------------
+image:
+  dataset: mnist
+  channels: 1
+  size: 28
+  data_root: data/
+  encoder_base_ch: 32       # MNISTEncoder CNN width
+
+# -------------------------------------------------------------------
+# Channel
+# -------------------------------------------------------------------
+channel:
+  type: rayleigh
+  Nr: 4
+  Nt: 1
+  K: 4
+  Nu: 1
+  T: 8
+
+# -------------------------------------------------------------------
+# Noise model (alpha-stable)
+# -------------------------------------------------------------------
+noise:
+  alpha: 2.0      # 2.0 = AWGN; set < 2 for heavy-tailed noise
+  sigma_n: 1.0
+  L_A: 5
+
+# -------------------------------------------------------------------
+# DLPM priors
+# -------------------------------------------------------------------
+dlpm_H:
+  alpha: 1.8
+  diffusion_steps: 500
+  isotropic: true
+  scale: scale_preserving
+  clamp_a: 20.0
+  clamp_eps: 50.0
+
+dlpm_D:
+  alpha: 1.8
+  diffusion_steps: 500
+  isotropic: true
+  scale: scale_preserving
+  clamp_a: 10.0
+  clamp_eps: 50.0
+
+# -------------------------------------------------------------------
+# Channel denoiser (ChannelDenoiser MLP)
+# -------------------------------------------------------------------
+channel_net:
+  hidden_dim: 128
+  depth: 3
+  time_embed_dim: 64
+
+# -------------------------------------------------------------------
+# Image denoiser (UNetModel)
+# attention_resolutions: downsampling factor (ds), NOT pixel size.
+# For 28x28 with channel_mult=[1,2,2]: ds=4 at the 7x7 level.
+# -------------------------------------------------------------------
+image_net:
+  model_channels: 32
+  channel_mult: [1, 2, 2]
+  num_res_blocks: 2
+  attention_resolutions: [4]
+  num_heads: 1
+  dropout: 0.0
+
+# -------------------------------------------------------------------
+# Channel training
+# -------------------------------------------------------------------
+channel_training:
+  batch_size: 512
+  n_iters: 30000
+  lr: 0.0002
+  warmup: 1000
+  save_every: 5000
+  checkpoint_dir: checkpoints/channel_mnist
+  device: cuda
+  log_every: 500
+
+# -------------------------------------------------------------------
+# Image training
+# -------------------------------------------------------------------
+image_training:
+  dataset: mnist
+  data_root: data/
+  image_size: 28
+  in_channels: 1
+  batch_size: 128
+  n_iters: 30000
+  lr: 0.0002
+  warmup: 5000
+  save_every: 5000
+  checkpoint_dir: checkpoints/image_mnist
+  device: cuda
+  num_workers: 4
+
+# -------------------------------------------------------------------
+# Encoder (MNISTEncoder — no pretrained checkpoint needed for debug)
+# -------------------------------------------------------------------
+encoder:
+  checkpoint: null   # set to checkpoints/encoder/mnist_enc_best.pt after training
+
+# -------------------------------------------------------------------
+# DLPM-PVD inference
+# -------------------------------------------------------------------
+pvd:
+  J: 100
+  lambda_H: 1.0
+  lambda_D: 1.0
+  L_A: 5
+  use_checkpoint: false
+  analytical_channel_prior: true   # use Wiener filter for H (no channel denoiser needed)
+
+# -------------------------------------------------------------------
+# Evaluation
+# -------------------------------------------------------------------
+eval:
+  snr_range: [0, 5, 10, 15, 20]
+  n_trials: 100
+  batch_size: 4
+  device: cuda
+  metrics: [ms_ssim, nmse]
+  channel_ckpt: checkpoints/channel_mnist/channel_dlpm_best.pt
+  image_ckpt: checkpoints/image_mnist/image_dlpm_best.pt

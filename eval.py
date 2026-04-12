@@ -22,11 +22,14 @@ from channels.rayleigh import generate_rayleigh_channel, apply_channel_stable_no
 from encoder.swin_jscc import DJSCCEncoder
 from diffusion.levy_diffusion import GenerativeLevyProcess
 from models.channel_net import ChannelDenoiser
+from models.mnist_encoder import MNISTEncoder
 from models.unet import UNetModel
 from noise.stable_noise import SubGaussianStableNoise
 from pvd.dlpm_pvd import DLPMPVDSolver
 from metrics.ms_ssim import ms_ssim
 from metrics.nmse import nmse_db
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
 
 
 # ---------------------------------------------------------------------------
@@ -106,18 +109,33 @@ def build_image_net(cfg: dict, device: torch.device) -> UNetModel:
 # Evaluation loop
 # ---------------------------------------------------------------------------
 
+def _build_mnist_loader(data_root: str, batch_size: int) -> DataLoader:
+    """Infinite MNIST loader (test split, no augmentation)."""
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5]),   # → [-1, 1]
+    ])
+    dataset = datasets.MNIST(root=data_root, train=False, download=True, transform=transform)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False)
+
+
 def evaluate_snr(
     cfg: dict,
     snr_db: float,
     device: torch.device,
     f_gamma, eps_theta_H, eps_theta_D, noise_model,
     glp_H, glp_D,
+    data_iter=None,
 ) -> dict:
     """Run n_trials Monte Carlo trials at a given SNR."""
     ch = cfg["channel"]
     Nr, Nt, K, Nu, T = ch["Nr"], ch["Nt"], ch["K"], ch["Nu"], ch["T"]
     pvd_cfg = cfg["pvd"]
     eval_cfg = cfg["eval"]
+
+    img_cfg = cfg.get("image", {})
+    img_channels = img_cfg.get("channels", 1)
+    img_size     = img_cfg.get("size", 28)
 
     n_trials = eval_cfg.get("n_trials", 300)
     batch_size = eval_cfg.get("batch_size", 4)
@@ -137,6 +155,9 @@ def evaluate_snr(
         L_A=pvd_cfg.get("L_A", 20),
         device=device,
         use_checkpoint=pvd_cfg.get("use_checkpoint", True),
+        use_analytical_channel_prior=pvd_cfg.get("analytical_channel_prior", False),
+        img_channels=img_channels,
+        img_size=img_size,
     )
 
     all_nmse = []
@@ -145,10 +166,19 @@ def evaluate_snr(
     for batch_idx in tqdm(range(n_batches), desc=f"SNR={snr_db:+.0f}dB", leave=False):
         B = min(batch_size, n_trials - batch_idx * batch_size)
 
-        # Generate channel and source
+        # Generate channel
         H0 = generate_rayleigh_channel(B, Nu, Nr, Nt, K, device)  # (B, Nu, NrK, NtK)
-        # Random FFHQ-like images (replace with real data for actual evaluation)
-        D0 = torch.rand(B, 3, 256, 256, device=device) * 2 - 1      # [-1, 1]
+
+        # Source images — use real MNIST batches if loader provided, else random
+        if data_iter is not None:
+            try:
+                imgs, _ = next(data_iter)
+            except StopIteration:
+                # Loader exhausted — will be refreshed by caller; use random fallback
+                imgs = torch.rand(B, img_channels, img_size, img_size) * 2 - 1
+            D0 = imgs[:B].to(device)
+        else:
+            D0 = torch.rand(B, img_channels, img_size, img_size, device=device) * 2 - 1
 
         # Encode
         with torch.no_grad():
@@ -201,9 +231,35 @@ def main():
     device = torch.device(device_str if torch.cuda.is_available() or device_str == "cpu" else "cpu")
     print(f"Device: {device}")
 
+    # Image config
+    img_cfg = cfg.get("image", {})
+    img_channels = img_cfg.get("channels", 1)
+    img_size     = img_cfg.get("size", 28)
+    use_mnist    = img_cfg.get("dataset", "mnist") == "mnist"
+
     # Build models
     print("Loading models...")
-    f_gamma = build_encoder(cfg, device)
+    ch = cfg["channel"]
+    if use_mnist:
+        NtK = ch["Nt"] * ch["K"]
+        f_gamma = MNISTEncoder(
+            in_channels=img_channels,
+            NtK=NtK,
+            T=ch["T"],
+            Nu=ch["Nu"],
+            base_ch=img_cfg.get("encoder_base_ch", 32),
+        ).to(device).eval()
+        enc_ckpt = cfg.get("encoder", {}).get("checkpoint")
+        if enc_ckpt and os.path.isfile(enc_ckpt):
+            f_gamma.load_state_dict(torch.load(enc_ckpt, map_location=device)["model"])
+            print(f"  Loaded MNISTEncoder from {enc_ckpt}")
+        else:
+            print("  MNISTEncoder: using random weights (train encoder for better results)")
+        for p in f_gamma.parameters():
+            p.requires_grad_(False)
+    else:
+        f_gamma = build_encoder(cfg, device)
+
     eps_theta_H = build_channel_net(cfg, device)
     eps_theta_D = build_image_net(cfg, device)
 
@@ -238,11 +294,20 @@ def main():
     else:
         snrs = cfg["eval"].get("snr_range", [10])
 
+    # Build MNIST data iterator if needed
+    data_iter = None
+    if use_mnist:
+        data_root = img_cfg.get("data_root", "data/")
+        mnist_loader = _build_mnist_loader(data_root, cfg["eval"].get("batch_size", 4))
+        data_iter = iter(mnist_loader)
+        print(f"  MNIST test set loaded from {data_root}")
+
     print(f"\nEvaluating SNRs: {snrs}")
     results = []
     for snr_db in snrs:
         res = evaluate_snr(cfg, snr_db, device, f_gamma,
-                           eps_theta_H, eps_theta_D, noise_model, glp_H, glp_D)
+                           eps_theta_H, eps_theta_D, noise_model, glp_H, glp_D,
+                           data_iter=data_iter)
         results.append(res)
         print(f"  SNR={snr_db:+.0f}dB | NMSE={res['nmse_db_mean']:.2f}±{res['nmse_db_std']:.2f} dB"
               f" | MS-SSIM={res['ms_ssim_mean']:.4f}±{res['ms_ssim_std']:.4f}")
