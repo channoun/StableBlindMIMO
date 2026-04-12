@@ -63,7 +63,7 @@ channel_net:
 # For 28x28 with channel_mult=[1,2,2]: ds=4 at the 7x7 level.
 # -------------------------------------------------------------------
 image_net:
-  model_channels: 32
+  model_channels: 128
   channel_mult: [1, 2, 2]
   num_res_blocks: 2
   attention_resolutions: [4]

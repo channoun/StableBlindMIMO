@@ -83,14 +83,16 @@ def build_channel_net(cfg: dict, device: torch.device) -> ChannelDenoiser:
 
 def build_image_net(cfg: dict, device: torch.device) -> UNetModel:
     net_cfg = cfg["image_net"]
+    # Read image channels from the [image] section; fall back to 3 for RGB configs
+    img_channels = cfg.get("image", {}).get("channels", 3)
     net = UNetModel(
-        in_channels=3,
+        in_channels=img_channels,
         model_channels=net_cfg.get("model_channels", 128),
-        out_channels=3,
+        out_channels=img_channels,
         num_res_blocks=net_cfg.get("num_res_blocks", 2),
         attention_resolutions=net_cfg.get("attention_resolutions", [16, 8]),
         dropout=net_cfg.get("dropout", 0.0),
-        channel_mult=net_cfg.get("channel_mult", [1, 2, 2, 2]),
+        channel_mult=tuple(net_cfg.get("channel_mult", [1, 2, 2, 2])),
         num_heads=net_cfg.get("num_heads", 4),
         use_checkpoint=True,
     ).to(device).eval()
