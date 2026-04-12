@@ -38,8 +38,15 @@ def sample_positive_stable(
     Returns:
         (n_samples,) float32 tensor, all values > 0.
     """
-    if not 0.0 < alpha_half < 1.0:
-        raise ValueError(f"alpha_half must be in (0, 1), got {alpha_half}")
+    if not 0.0 < alpha_half <= 1.0:
+        raise ValueError(f"alpha_half must be in (0, 1], got {alpha_half}")
+    
+    if alpha_half == 1.0:
+        # When alpha=2, return Gaussian distribution with scale=1.0
+        rng = np.random.default_rng(seed)
+        samples = rng.normal(loc=0.0, scale=1.0, size=n_samples)
+        return torch.from_numpy(samples.astype(np.float32)).to(device)
+    
     rng = np.random.default_rng(seed)
     scale = math.cos(math.pi * alpha_half / 2.0) ** (2.0 / alpha_half)
     samples = levy_stable.rvs(
@@ -64,6 +71,10 @@ def stable_log_density(
     Returns:
         (N,) log-density tensor.
     """
+    if alpha_half == 1.0:
+        # When alpha=2, return Gaussian log-density: log N(0, 1)
+        return -0.5 * a ** 2 - 0.5 * np.log(2 * np.pi)
+    
     a_np = a.cpu().numpy()
     scale = math.cos(math.pi * alpha_half / 2.0) ** (2.0 / alpha_half)
     log_p = levy_stable.logpdf(a_np, alpha=alpha_half, beta=1.0, loc=0.0, scale=scale)

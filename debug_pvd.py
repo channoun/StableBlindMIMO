@@ -114,7 +114,7 @@ def main():
     parser.add_argument("--snr", type=float, default=10.0, help="SNR in dB")
     parser.add_argument("--alpha_H", type=float, default=1.8)
     parser.add_argument("--alpha_D", type=float, default=1.8)
-    parser.add_argument("--alpha_noise", type=float, default=1.8,
+    parser.add_argument("--alpha_noise", type=float, default=2.0,
                         help="Noise stability index (2.0 = Gaussian AWGN)")
     parser.add_argument("--J", type=int, default=20, help="Diffusion steps")
     parser.add_argument("--L_A", type=int, default=3,
