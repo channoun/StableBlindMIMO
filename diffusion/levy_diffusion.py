@@ -347,15 +347,23 @@ class GenerativeLevyProcess:
         clamp_eps: float = None,
         monte_carlo: int = 1,
         lploss: float = 2.0,
+        use_smooth_l1: bool = False,
+        smooth_l1_beta: float = 0.1,
     ) -> torch.Tensor:
         """
         DLPM training loss (Proposition 9).
 
         Args:
-            model:       Noise predictor ε_θ(x_t, t) → ε̂.
-            x_start:     (B, ...) clean data.
-            monte_carlo: Number of MC samples of a_t per training step.
-            lploss:      Loss order (2.0 = MSE).
+            model:           Noise predictor ε_θ(x_t, t) → ε̂.
+            x_start:         (B, ...) clean data.
+            monte_carlo:     Number of MC samples of a_t per training step.
+            lploss:          Loss order (2.0 = MSE, ignored when use_smooth_l1=True).
+            use_smooth_l1:   If True, use Huber (Smooth-L1) loss instead of MSE.
+                             Recommended for alpha-stable diffusion (α < 2) because
+                             the noise has heavier tails than Gaussian — Smooth-L1
+                             is more robust to the resulting large-residual outliers.
+            smooth_l1_beta:  Transition point between L1 and L2 regimes in Huber loss.
+                             Smaller values (e.g. 0.1) make the loss more L1-like.
 
         Returns:
             scalar loss.
@@ -377,7 +385,12 @@ class GenerativeLevyProcess:
         x_t, eps_t = self.dlpm.get_one_rv_loss_elements(t_ext, x_ext, A_ext, z_ext)
         eps_pred = model(x_t, t_ext)
 
-        if lploss == 2.0:
+        if use_smooth_l1:
+            losses = nn.functional.smooth_l1_loss(
+                eps_pred, eps_t, beta=smooth_l1_beta, reduction="none"
+            )
+            losses = losses.view(B * monte_carlo, -1).mean(dim=1)
+        elif lploss == 2.0:
             losses = nn.functional.mse_loss(eps_pred, eps_t, reduction="none")
             losses = losses.view(B * monte_carlo, -1).mean(dim=1)
         else:

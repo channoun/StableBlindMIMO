@@ -73,6 +73,8 @@ def train(
     log_every: int = 500,
     num_workers: int = 4,
     ema_rate: float = 0.9999,
+    use_smooth_l1: bool = True,
+    smooth_l1_beta: float = 0.1,
 ):
     if model_type not in ("dlpm", "lim"):
         raise ValueError(f"model_type must be 'dlpm' or 'lim', got '{model_type}'")
@@ -141,9 +143,15 @@ def train(
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     warmup_sched = optim.lr_scheduler.LinearLR(optimizer, start_factor=1e-4,
                                                 end_factor=1.0, total_iters=warmup)
+    cosine_sched = optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=max(1, n_iters - warmup), eta_min=1e-6
+    )
 
     ckpt_prefix = f"image_{model_type}"
+    loss_name = "Smooth-L1" if use_smooth_l1 else "MSE"
     print(f"Training image {model_type.upper()}: size={image_size}, α={alpha_D}, steps={diffusion_steps}")
+    print(f"  Loss: {loss_name}" + (f" (β={smooth_l1_beta})" if use_smooth_l1 else ""))
+    print(f"  LR schedule: linear warmup ({warmup} iters) → cosine annealing → 1e-6")
     print(f"  Model params: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M")
     print(f"  Device: {device}")
 
@@ -162,7 +170,11 @@ def train(
 
         x_batch = x_batch.to(device)
         if model_type == "dlpm":
-            loss = glp.training_loss(model, x_batch, clamp_a=clamp_a, clamp_eps=clamp_eps)
+            loss = glp.training_loss(
+                model, x_batch,
+                clamp_a=clamp_a, clamp_eps=clamp_eps,
+                use_smooth_l1=use_smooth_l1, smooth_l1_beta=smooth_l1_beta,
+            )
         else:
             loss = glp.training_loss(model, x_batch)
 
@@ -172,6 +184,8 @@ def train(
         optimizer.step()
         if it < warmup:
             warmup_sched.step()
+        else:
+            cosine_sched.step()
 
         # EMA update
         with torch.no_grad():
@@ -232,6 +246,10 @@ def main():
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints/image")
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--no_smooth_l1", action="store_true",
+                        help="Disable Smooth-L1 and use MSE instead (default: Smooth-L1 on)")
+    parser.add_argument("--smooth_l1_beta", type=float, default=0.1,
+                        help="Smooth-L1 beta transition point (default: 0.1)")
     args = parser.parse_args()
 
     cfg = vars(args)
@@ -294,6 +312,8 @@ def main():
         checkpoint_dir=cfg.get("checkpoint_dir", "checkpoints/image"),
         device_str=cfg.get("device", "cuda"),
         num_workers=cfg.get("num_workers", 4),
+        use_smooth_l1=not args.no_smooth_l1,
+        smooth_l1_beta=args.smooth_l1_beta,
     )
 
 
