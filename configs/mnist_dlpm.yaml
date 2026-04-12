@@ -26,7 +26,7 @@ channel:
 # Noise model (alpha-stable)
 # -------------------------------------------------------------------
 noise:
-  alpha: 2.0      # 2.0 = AWGN; set < 2 for heavy-tailed noise
+  alpha: 1.8      # stability index of channel noise N = A^{1/2} G; 2.0 = AWGN
   sigma_n: 1.0
   L_A: 5
 
@@ -113,7 +113,7 @@ encoder:
 pvd:
   J: 100           # reverse steps; init now correctly uses barsigmas[J-1].
                    # increase toward diffusion_steps (500) for best quality.
-  lambda_H: 1.0
+  lambda_H: 0.1    # reduced: image denoiser not yet converged, bad D_hat corrupts channel likelihood
   lambda_D: 1.0
   L_A: 5
   use_checkpoint: false
