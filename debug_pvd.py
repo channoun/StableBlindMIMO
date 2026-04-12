@@ -188,7 +188,7 @@ def main():
 
     sigma_n = set_sigma_n_for_snr(H0, X, args.snr)
     noise_model = SubGaussianStableNoise(alpha=args.alpha_noise, sigma_n=sigma_n)
-    Y = apply_channel_stable_noise(H0, X, noise_model)  # (B, NrK, T)
+    Y, _ = apply_channel_stable_noise(H0, X, args.snr, noise_model)  # (B, NrK, T)
     print(f"  Y:  {list(Y.shape)}  abs_mean={Y.abs().mean():.3f}  sigma_n={sigma_n:.4f}")
 
     # ------------------------------------------------------------------
