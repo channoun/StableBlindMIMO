@@ -94,7 +94,9 @@ def build_image_net(cfg: dict, device: torch.device) -> UNetModel:
         dropout=net_cfg.get("dropout", 0.0),
         channel_mult=tuple(net_cfg.get("channel_mult", [1, 2, 2, 2])),
         num_heads=net_cfg.get("num_heads", 4),
-        use_checkpoint=True,
+        use_checkpoint=False,   # must be False at eval: checkpoint backward is
+                                # incompatible with likelihood autograd through
+                                # frozen (requires_grad=False) model parameters
     ).to(device).eval()
     ckpt = cfg["eval"].get("image_ckpt")
     if ckpt and os.path.isfile(ckpt):
