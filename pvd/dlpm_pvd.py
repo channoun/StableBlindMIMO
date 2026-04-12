@@ -172,9 +172,12 @@ class DLPMPVDSolver:
         self.glp_D.dlpm.sample_A(shape_D, self.J)
         self.glp_D.dlpm.compute_Sigmas()
 
-        H_t = (self.glp_H.dlpm.barsigmas[-1].item()
+        # Initialize from the noise level at step J-1, not the end of the full
+        # diffusion schedule.  The reverse loop runs t = J-1 → 1, so H_t / D_t
+        # must start at the noise scale corresponding to barsigmas[J-1].
+        H_t = (self.glp_H.dlpm.barsigmas[self.J - 1].item()
                * self.glp_H.dlpm.gen_eps.generate(size=shape_H))
-        D_t = (self.glp_D.dlpm.barsigmas[-1].item()
+        D_t = (self.glp_D.dlpm.barsigmas[self.J - 1].item()
                * self.glp_D.dlpm.gen_eps.generate(size=shape_D))
 
         return H_t.to(self.device), D_t.to(self.device)

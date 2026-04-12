@@ -111,7 +111,8 @@ encoder:
 # DLPM-PVD inference
 # -------------------------------------------------------------------
 pvd:
-  J: 100
+  J: 100           # reverse steps; init now correctly uses barsigmas[J-1].
+                   # increase toward diffusion_steps (500) for best quality.
   lambda_H: 1.0
   lambda_D: 1.0
   L_A: 5
