@@ -1,0 +1,121 @@
+# DLPM-PVD on Rayleigh fading channel with alpha-stable noise
+# Corresponds to Fig. 3/4 configuration from arXiv:2510.27043
+# but with DLPM priors (ICLR 2025) instead of NCSN++ score networks.
+
+# -------------------------------------------------------------------
+# Channel
+# -------------------------------------------------------------------
+channel:
+  type: rayleigh
+  Nr: 4           # receive antennas
+  Nt: 1           # transmit antennas per user
+  K: 192          # transmission blocks
+  Nu: 1           # number of users
+  T: 24           # symbols per block (CBR ≈ 1/16)
+
+# -------------------------------------------------------------------
+# Noise model (alpha-stable)
+# -------------------------------------------------------------------
+noise:
+  alpha: 1.8      # stability index; 2.0 = AWGN
+  sigma_n: 1.0    # Gaussian component scale (adjusted at eval time for target SNR)
+  L_A: 20         # MC samples for A posterior
+
+# -------------------------------------------------------------------
+# DLPM priors
+# -------------------------------------------------------------------
+dlpm_H:
+  alpha: 1.8
+  diffusion_steps: 1000
+  isotropic: true
+  scale: scale_preserving
+  clamp_a: 20.0
+  clamp_eps: 50.0
+
+dlpm_D:
+  alpha: 1.8
+  diffusion_steps: 1000
+  isotropic: true
+  scale: scale_preserving
+  clamp_a: 10.0
+  clamp_eps: 50.0
+
+# -------------------------------------------------------------------
+# Channel denoiser (ChannelDenoiser MLP)
+# -------------------------------------------------------------------
+channel_net:
+  hidden_dim: 256
+  depth: 4
+  time_embed_dim: 128
+
+# -------------------------------------------------------------------
+# Image denoiser (UNetModel)
+# -------------------------------------------------------------------
+image_net:
+  model_channels: 128
+  channel_mult: [1, 2, 2, 2]
+  num_res_blocks: 2
+  attention_resolutions: [16, 8]
+  num_heads: 4
+  dropout: 0.0
+
+# -------------------------------------------------------------------
+# Channel training
+# -------------------------------------------------------------------
+channel_training:
+  batch_size: 256
+  n_iters: 100000
+  lr: 0.0002
+  warmup: 1000
+  save_every: 10000
+  checkpoint_dir: checkpoints/channel
+  device: cuda
+  log_every: 500
+
+# -------------------------------------------------------------------
+# Image training
+# -------------------------------------------------------------------
+image_training:
+  data_root: data/ffhq256
+  batch_size: 8
+  n_iters: 500000
+  lr: 0.0002
+  warmup: 5000
+  save_every: 50000
+  checkpoint_dir: checkpoints/image
+  device: cuda
+  num_workers: 4
+  ema_rate: 0.9999
+
+# -------------------------------------------------------------------
+# Encoder (SwinJSCC)
+# -------------------------------------------------------------------
+encoder:
+  embed_dim: 96
+  depths: [2, 2, 6, 2]
+  num_heads: [3, 6, 12, 24]
+  window_size: 8
+  power: 1.0
+  checkpoint: checkpoints/encoder/swin_jscc_best.pt
+
+# -------------------------------------------------------------------
+# DLPM-PVD inference
+# -------------------------------------------------------------------
+pvd:
+  J: 1000           # diffusion steps at inference
+  lambda_H: 1.0     # likelihood step size for H (tune per SNR)
+  lambda_D: 1.0     # likelihood step size for D (tune per SNR)
+  L_A: 20           # MC samples for A posterior
+  use_checkpoint: true
+
+# -------------------------------------------------------------------
+# Evaluation
+# -------------------------------------------------------------------
+eval:
+  snr_range: [-5, 0, 5, 10, 15, 20]   # dB
+  n_trials: 300
+  batch_size: 4
+  device: cuda
+  metrics: [ms_ssim, nmse]
+  channel_ckpt: checkpoints/channel/channel_dlpm_best.pt
+  image_ckpt: checkpoints/image/image_dlpm_best.pt
