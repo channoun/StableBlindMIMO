@@ -79,7 +79,7 @@ channel_training:
   lr: 0.0002
   warmup: 1000
   save_every: 5000
-  checkpoint_dir: checkpoints/channel_mnist
+  checkpoint_dir: checkpoints/channel
   device: cuda
   log_every: 500
 
@@ -104,7 +104,8 @@ image_training:
 # Encoder (MNISTEncoder — no pretrained checkpoint needed for debug)
 # -------------------------------------------------------------------
 encoder:
-  checkpoint: null   # set to checkpoints/encoder/mnist_enc_best.pt after training
+  checkpoint: checkpoints/encoder/mnist_enc_best.pt
+  checkpoint_dir: checkpoints/encoder
 
 # -------------------------------------------------------------------
 # DLPM-PVD inference
