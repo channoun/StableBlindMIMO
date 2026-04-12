@@ -54,7 +54,7 @@ def build_encoder(cfg: dict, device: torch.device) -> DJSCCEncoder:
     ).to(device).eval()
     ckpt = enc_cfg.get("checkpoint")
     if ckpt and os.path.isfile(ckpt):
-        enc.load_state_dict(torch.load(ckpt, map_location=device)["model"])
+        enc.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True)["model"])
         print(f"  Loaded encoder from {ckpt}")
     else:
         print(f"  WARNING: encoder checkpoint not found at {ckpt}, using random weights.")
@@ -74,7 +74,7 @@ def build_channel_net(cfg: dict, device: torch.device) -> ChannelDenoiser:
     ).to(device).eval()
     ckpt = cfg["eval"].get("channel_ckpt")
     if ckpt and os.path.isfile(ckpt):
-        net.load_state_dict(torch.load(ckpt, map_location=device)["model"])
+        net.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True)["model"])
         print(f"  Loaded channel denoiser from {ckpt}")
     else:
         print(f"  WARNING: channel denoiser checkpoint not found at {ckpt}, using random weights.")
@@ -98,7 +98,7 @@ def build_image_net(cfg: dict, device: torch.device) -> UNetModel:
     ).to(device).eval()
     ckpt = cfg["eval"].get("image_ckpt")
     if ckpt and os.path.isfile(ckpt):
-        state = torch.load(ckpt, map_location=device)
+        state = torch.load(ckpt, map_location=device, weights_only=True)
         key = "ema" if "ema" in state else "model"
         net.load_state_dict(state[key])
         print(f"  Loaded image denoiser from {ckpt}")
@@ -253,7 +253,8 @@ def main():
         ).to(device).eval()
         enc_ckpt = cfg.get("encoder", {}).get("checkpoint")
         if enc_ckpt and os.path.isfile(enc_ckpt):
-            f_gamma.load_state_dict(torch.load(enc_ckpt, map_location=device)["model"])
+            state = torch.load(enc_ckpt, map_location=device, weights_only=True)
+            f_gamma.load_state_dict(state.get("encoder", state.get("model")))
             print(f"  Loaded MNISTEncoder from {enc_ckpt}")
         else:
             print("  MNISTEncoder: using random weights (train encoder for better results)")
