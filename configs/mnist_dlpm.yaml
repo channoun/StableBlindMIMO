@@ -63,7 +63,7 @@ channel_net:
 # For 28x28 with channel_mult=[1,2,2]: ds=4 at the 7x7 level.
 # -------------------------------------------------------------------
 image_net:
-  model_channels: 256
+  model_channels: 128
   channel_mult: [1, 2, 2]
   num_res_blocks: 2
   attention_resolutions: [4]
@@ -127,5 +127,5 @@ eval:
   batch_size: 4
   device: cuda
   metrics: [ms_ssim, nmse]
-  channel_ckpt: checkpoints/channel/channel_dlpm_best.pt
+  channel_ckpt: null   # not used when pvd.analytical_channel_prior: true
   image_ckpt: checkpoints/image_mnist/image_dlpm_best.pt
