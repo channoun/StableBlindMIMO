@@ -113,7 +113,7 @@ encoder:
 pvd:
   J: 100           # reverse steps; init now correctly uses barsigmas[J-1].
                    # increase toward diffusion_steps (500) for best quality.
-  lambda_H: 0.1    # reduced: image denoiser not yet converged, bad D_hat corrupts channel likelihood
+  lambda_H: 1.0    # restored: image denoiser converged (loss ~0.061), encoder trained
   lambda_D: 1.0
   L_A: 5
   use_checkpoint: false
