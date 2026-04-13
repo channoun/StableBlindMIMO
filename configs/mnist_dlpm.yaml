@@ -111,8 +111,7 @@ encoder:
 # DLPM-PVD inference
 # -------------------------------------------------------------------
 pvd:
-  J: 100           # reverse steps; init now correctly uses barsigmas[J-1].
-                   # increase toward diffusion_steps (500) for best quality.
+  J: 300           # full reverse trajectory; matches diffusion_steps=500
   lambda_H: 1.0    # restored: image denoiser converged (loss ~0.061), encoder trained
   lambda_D: 1.0
   L_A: 5
