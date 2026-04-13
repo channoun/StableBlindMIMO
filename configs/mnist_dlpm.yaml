@@ -111,7 +111,7 @@ encoder:
 # DLPM-PVD inference
 # -------------------------------------------------------------------
 pvd:
-  J: 300           # full reverse trajectory; matches diffusion_steps=500
+  J: 500           # full reverse trajectory; matches diffusion_steps=500
   lambda_H: 1.0    # restored: image denoiser converged (loss ~0.061), encoder trained
   lambda_D: 1.0
   L_A: 5
