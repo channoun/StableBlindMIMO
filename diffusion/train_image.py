@@ -273,14 +273,14 @@ def main():
     # MNIST 28×28 with channel_mult=(1,2,2): ds=4 at 7×7 level → att at (4,).
     # RGB 256×256 with channel_mult=(1,2,2,2): ds=16 at 16×16 level → att at (16,).
     if is_mnist:
-        default_model_channels   = 32
-        default_channel_mult     = (1, 2, 2)
-        default_num_res_blocks   = 2
-        default_attention_res    = (4,)
+        default_model_channels   = 128
+        default_channel_mult     = (1, 2, 4)
+        default_num_res_blocks   = 3
+        default_attention_res    = (2, 4)
         default_steps            = 500
         default_batch            = 128
-        default_n_iters          = 20_000
-        default_save_every       = 5_000
+        default_n_iters          = 80_000
+        default_save_every       = 10_000
     else:
         default_model_channels   = 128
         default_channel_mult     = (1, 2, 2, 2)

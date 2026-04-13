@@ -64,11 +64,11 @@ channel_net:
 # -------------------------------------------------------------------
 image_net:
   model_channels: 128
-  channel_mult: [1, 2, 2]
-  num_res_blocks: 2
-  attention_resolutions: [4]
-  num_heads: 1
-  dropout: 0.0
+  channel_mult: [1, 2, 4]        # bottleneck 256→512 ch (was [1,2,2])
+  num_res_blocks: 3               # 3 ResBlocks per level (was 2)
+  attention_resolutions: [2, 4]  # attention at 14×14 (ds=2) and 7×7 (ds=4)
+  num_heads: 4                   # multi-head; 256%4=0, 512%4=0
+  dropout: 0.1                   # regularise against MNIST overfitting
 
 # -------------------------------------------------------------------
 # Channel training
@@ -92,10 +92,10 @@ image_training:
   image_size: 28
   in_channels: 1
   batch_size: 128
-  n_iters: 50000
+  n_iters: 80000
   lr: 0.0002
   warmup: 5000
-  save_every: 5000
+  save_every: 10000
   checkpoint_dir: checkpoints/image_mnist
   device: cuda
   num_workers: 4
