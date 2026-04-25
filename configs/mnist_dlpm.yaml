@@ -26,7 +26,7 @@ channel:
 # Noise model (alpha-stable)
 # -------------------------------------------------------------------
 noise:
-  alpha: 1.8      # stability index of channel noise N = A^{1/2} G; 2.0 = AWGN
+  alpha: 2.0      # stability index of channel noise N = A^{1/2} G; 2.0 = AWGN
   sigma_n: 1.0
   L_A: 5
 
@@ -34,7 +34,7 @@ noise:
 # DLPM priors
 # -------------------------------------------------------------------
 dlpm_H:
-  alpha: 1.8
+  alpha: 2.0
   diffusion_steps: 500
   isotropic: true
   scale: scale_preserving
@@ -42,7 +42,7 @@ dlpm_H:
   clamp_eps: 50.0
 
 dlpm_D:
-  alpha: 1.8
+  alpha: 2.0
   diffusion_steps: 500
   isotropic: true
   scale: scale_preserving
